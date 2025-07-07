@@ -46,17 +46,19 @@ jobs:
           unzip /tmp/commandlinetools.zip -d /tmp/android-cmdline-tools-extracted
           
           # Create the 'tools/bin' structure within Buildozer's expected SDK_ROOT
+          # This is the *old* path Buildozer seems to be hardcoded to check
           mkdir -p "$ANDROID_SDK_ROOT/tools/bin"
           echo "Created $ANDROID_SDK_ROOT/tools/bin"
 
-          # Move the actual sdkmanager and other binaries from the extracted path
-          # to Buildozer's expected 'tools/bin' location.
-          # The zip extracts to /tmp/android-cmdline-tools-extracted/cmdline-tools/cmdline-tools/
-          # We want its contents (bin, lib, etc.) under /tmp/android-cmdline-tools-extracted/cmdline-tools/latest/
-          # Then move the *contents* of 'bin' from there.
+          # Move the actual cmdline-tools content to its modern location within SDK_ROOT
+          # This is where sdkmanager will primarily reside
           mv /tmp/android-cmdline-tools-extracted/cmdline-tools/cmdline-tools "$ANDROID_SDK_ROOT/cmdline-tools/latest"
-          cp -r "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/." "$ANDROID_SDK_ROOT/tools/bin/"
-          echo "Moved sdkmanager and other binaries to $ANDROID_SDK_ROOT/tools/bin."
+          echo "Moved cmdline-tools to $ANDROID_SDK_ROOT/cmdline-tools/latest."
+
+          # Create a symbolic link for sdkmanager from its modern location to the old 'tools/bin' path
+          # This directly addresses Buildozer's specific path expectation
+          ln -s "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "$ANDROID_SDK_ROOT/tools/bin/sdkmanager"
+          echo "Symlinked sdkmanager to $ANDROID_SDK_ROOT/tools/bin/sdkmanager."
 
           # Clean up temporary extraction directory
           rm -rf /tmp/android-cmdline-tools-extracted
@@ -80,6 +82,7 @@ jobs:
           # Install specific Android SDK components into the designated SDK_ROOT
           # Use the sdkmanager with --sdk_root flag to ensure installation in the correct place
           echo "Installing platform-tools, platforms;android-33, build-tools;33.0.2, and build-tools;36.0.0..."
+          # Use the symlinked sdkmanager path
           "$ANDROID_SDK_ROOT/tools/bin/sdkmanager" \
             --sdk_root="$ANDROID_SDK_ROOT" \
             "platform-tools" \
