@@ -1,0 +1,63 @@
+name: Android APK Build
+
+on:
+  push:
+    branches:
+      - main # Trigger on pushes to the main branch
+  workflow_dispatch: # Allows manual triggering of the workflow from GitHub UI
+
+jobs:
+  build:
+    runs-on: ubuntu-latest # Use a fresh Ubuntu environment for each build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4 # Checkout your repository code
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9' # Specify a Python version compatible with Kivy/Buildozer
+
+      - name: Install Buildozer and Cython
+        run: pip install buildozer cython # Install Buildozer and Cython (a common dependency)
+
+      - name: Create buildozer.spec
+        run: |
+          # Create the buildozer.spec file directly in the workflow
+          # This ensures the correct spec is used for the build
+          cat <<EOF > buildozer.spec
+          [app]
+          title = FaceApp Attendance
+          package.name = faceappattendance
+          package.domain = org.kivy
+          version = 0.1
+          requirements = python3, kivy==2.2.1, flask, flask-cors, numpy, opencv, requests
+          source.dir = .
+          source.include_exts = py, png, jpg, xml, json, mp3
+          source.include_patterns = haarcascade_frontalface_default.xml, known_faces/*, user_emails.json, daily_attendance.json
+          android.permissions = INTERNET, ACCESS_NETWORK_STATE, ACCESS_WIFI_STATE, READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE
+          android.api = 33
+          android.minapi = 24
+          android.archs = arm64-v8a, armeabi-v7a
+          fullscreen = 0
+          orientation = portrait
+
+          [buildozer]
+          log_level = 2
+          data_dir = ./.buildozer
+          global_data_dir = ~/.buildozer
+          EOF
+        shell: bash
+
+      - name: Run Buildozer (Android Debug Build)
+        run: buildozer android debug # This command will build the debug APK
+        # Buildozer will download necessary SDKs, NDKs, and other tools.
+        # This step can take a significant amount of time on the first run.
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: faceapp-apk
+          path: bin/*.apk # Upload the generated APK from the 'bin' directory
+          retention-days: 5 # Keep the artifact for 5 days
