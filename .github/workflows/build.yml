@@ -22,6 +22,36 @@ jobs:
       - name: Install Buildozer and Cython
         run: pip install buildozer cython # Install Buildozer and Cython (a common dependency)
 
+      # Add Java setup, as it's required for Android SDK tools
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin' # Or 'zulu', 'adopt', 'microsoft'
+          java-version: '17' # Android SDK often requires Java 11 or 17
+
+      # Install Android SDK Build-Tools and platform-tools
+      # This step explicitly ensures aidl and other tools are available
+      - name: Install Android SDK Build-Tools
+        run: |
+          # Create a directory for the SDK if it doesn't exist
+          mkdir -p "$HOME/.android/sdk"
+          # Set ANDROID_HOME environment variable
+          echo "ANDROID_HOME=$HOME/.android/sdk" >> $GITHUB_ENV
+          echo "PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH" >> $GITHUB_ENV
+
+          # Download and install command-line tools
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-8583021_latest.zip -O /tmp/commandlinetools.zip
+          unzip -q /tmp/commandlinetools.zip -d "$ANDROID_HOME/cmdline-tools"
+          mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
+
+          # Accept licenses
+          yes | sdkmanager --licenses > /dev/null
+
+          # Install specific Android SDK components required by Buildozer
+          # Use the android.api version from buildozer.spec (33 in this case)
+          sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2" # Using a specific build-tools version
+        shell: bash
+
       - name: Create buildozer.spec
         run: |
           # Create the buildozer.spec file directly in the workflow
