@@ -65,14 +65,17 @@ jobs:
           echo "Current PATH: $PATH"
           echo "Current ANDROID_HOME: $ANDROID_HOME"
 
-          # Accept licenses using the full path to sdkmanager, forcing 'yes'
-          echo "Accepting Android SDK licenses..."
-          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses
+          # Create licenses directory and accept licenses directly
+          echo "Accepting Android SDK licenses by creating license file..."
+          mkdir -p "$ANDROID_SDK_ROOT/licenses"
+          echo "8933cc444bbd51ba6c970b55a4087e1e8557e4e1" > "$ANDROID_SDK_ROOT/licenses/android-sdk-licenses"
+          echo "d975f743f9cdb82fc1498d32dc2c07937dd647f9" >> "$ANDROID_SDK_ROOT/licenses/android-sdk-licenses" # Add more common license hashes if needed
+          echo "All SDK package licenses accepted (via file creation)."
           
           # Install specific Android SDK components using the full path to sdkmanager
-          # Installing build-tools;36.0.0 as suggested by the error log
-          echo "Installing platform-tools, platforms;android-33, build-tools;36.0.0..."
-          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-33" "build-tools;36.0.0"
+          # Reverting build-tools to 33.0.2 to match android.api = 33 in buildozer.spec
+          echo "Installing platform-tools, platforms;android-33, build-tools;33.0.2..."
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-33" "build-tools;33.0.2"
           echo "SDK components installation complete."
         shell: bash
 
