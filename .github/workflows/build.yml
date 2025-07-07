@@ -65,13 +65,14 @@ jobs:
           echo "Current PATH: $PATH"
           echo "Current ANDROID_HOME: $ANDROID_HOME"
 
-          # Accept licenses using the full path to sdkmanager
+          # Accept licenses using the full path to sdkmanager, forcing 'yes'
           echo "Accepting Android SDK licenses..."
-          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses
           
           # Install specific Android SDK components using the full path to sdkmanager
-          echo "Installing platform-tools, platforms;android-33, build-tools;33.0.2..."
-          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+          # Installing build-tools;36.0.0 as suggested by the error log
+          echo "Installing platform-tools, platforms;android-33, build-tools;36.0.0..."
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-33" "build-tools;36.0.0"
           echo "SDK components installation complete."
         shell: bash
 
