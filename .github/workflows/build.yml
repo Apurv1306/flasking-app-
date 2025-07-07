@@ -40,7 +40,8 @@ jobs:
 
           # Download and install command-line tools
           echo "Downloading command-line tools..."
-          wget https://dl.google.com/android/repository/commandlinetools-linux-8583021_latest.zip -O /tmp/commandlinetools.zip
+          # Updated URL for the latest command-line tools
+          wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O /tmp/commandlinetools.zip
           echo "Unzipping command-line tools..."
           unzip /tmp/commandlinetools.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
           
