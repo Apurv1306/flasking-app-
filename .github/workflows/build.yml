@@ -22,43 +22,155 @@ jobs:
       - name: Install Buildozer and Cython
         run: pip install buildozer cython # Install Buildozer and Cython (a common dependency)
 
-      # Use the dedicated GitHub Action to set up Android SDK
-      # This action handles downloading, extracting, setting paths, and accepting licenses.
+      # Add Java setup, as it's required for Android SDK tools like sdkmanager
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin' # Or 'zulu', 'adopt', 'microsoft'
+          java-version: '17' # Android SDK often requires Java 11 or 17
+
+      # Use the dedicated GitHub Action to set up Android SDK base components
+      # This action handles downloading, extracting, and setting initial paths.
       - name: Setup Android SDK (Base)
         uses: android-actions/setup-android@v2
         with:
           # Specify the Android API level you are targeting from your buildozer.spec
           api-level: 33
-          # Automatically accept all required Android SDK licenses
+          # This action also attempts to accept common licenses, but we'll reinforce it.
           accept-android-sdk-licenses: true
-          # We will explicitly install build-tools;36.0.0 in a separate step if needed.
 
       - name: Ensure ANDROID_HOME and PATH are set
         run: |
-          # Re-export ANDROID_HOME and PATH to ensure they are available for subsequent steps
           # The setup-android action usually sets ANDROID_HOME to $HOME/Android/sdk
+          # Re-export these to ensure they are available for subsequent shell commands
           export ANDROID_HOME="$HOME/Android/sdk"
           echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          # Add cmdline-tools/latest/bin and platform-tools to PATH
           echo "PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH" >> $GITHUB_ENV
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH" # For current shell
           echo "Current PATH: $PATH"
           echo "Current ANDROID_HOME: $ANDROID_HOME"
         shell: bash
 
-      - name: Install Specific Android Build-Tools and Accept Licenses
+      - name: Accept All Android SDK Licenses and Install Build-Tools
         run: |
-          # Create licenses directory and accept common licenses directly
-          # This is a fallback/additional measure for licenses not caught by setup-android
-          mkdir -p "$ANDROID_HOME/licenses"
-          # These are common license hashes. Add more if new ones appear in error logs.
-          echo "8933cc444bbd51ba6c970b55a4087e1e8557e4e1" > "$ANDROID_HOME/licenses/android-sdk-licenses"
-          echo "d975f743f9cdb82fc1498d32dc2c07937dd647f9" >> "$ANDROID_HOME/licenses/android-sdk-licenses"
-          echo "24333f8a63b6825ea9c65dab8d159f633a59d156" >> "$ANDROID_HOME/licenses/android-sdk-licenses"
-          echo "68561a6374823293021a8a43fcc41b12b6f483ec" >> "$ANDROID_HOME/licenses/android-sdk-licenses"
-          echo "e06d5069657a6e3a990098860a3832c668746c36" >> "$ANDROID_HOME/licenses/android-sdk-licenses"
-          echo "All SDK package licenses accepted (via file creation)."
+          # This command will accept all outstanding licenses and update installed packages.
+          # The 'yes |' pipe is crucial for non-interactive acceptance.
+          echo "Attempting to accept all Android SDK licenses and update components..."
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+          echo "License acceptance and update attempt complete."
 
           # Explicitly install build-tools;36.0.0 because the error indicates it's being looked for.
+          # This is done *after* general license acceptance.
+          # Using '|| true' to prevent job failure if this specific version isn't available or causes a soft error.
+          echo "Attempting to install build-tools;36.0.0..."
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;36.0.0" || true
+          echo "Installation attempt for build-tools;36.0.0 complete."
+        shell: bash
+
+      - name: Create buildozer.spec
+        run: |
+          # Create the buildozer.spec file directly in the workflow
+          # This ensures the correct spec is used for the build
+          cat <<EOF > buildozer.spec
+          [app]
+          title = FaceApp Attendance
+          package.name = faceappattendance
+          package.domain = org.kivy
+          version = 0.1
+          requirements = python3, kivy==2.2.1, flask, flask-cors, numpy, opencv, requests
+          source.dir = .
+          source.include_exts = py, png, jpg, xml, json, mp3
+          source.include_patterns = haarcascade_frontalface_default.xml, known_faces/*, user_emails.json, daily_attendance.json
+          android.permissions = INTERNET, ACCESS_NETWORK_STATE, ACCESS_WIFI_STATE, READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE
+          android.api = 33
+          android.minapi = 24
+          android.archs = arm64-v8a, armeabi-v7a
+          fullscreen = 0
+          orientation = portrait
+
+          [buildozer]
+          log_level = 2
+          data_dir = ./.buildozer
+          global_data_dir = ~/.buildozer
+          EOF
+        shell: bash
+
+      - name: Run Buildozer (Android Debug Build)
+        run: buildozer android debug # This command will build the debug APK
+        # Buildozer will now find the necessary SDK components set up by the previous steps.
+        # This step can still take a significant amount of time on the first run due to Buildozer's own downloads.
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: faceapp-apk
+          path: bin/*.apk # Upload the generated APK from the 'bin' directory
+          retention-days: 5 # Keep the artifact for 5 days
+name: Android APK Build
+
+on:
+  push:
+    branches:
+      - main # Trigger on pushes to the main branch
+  workflow_dispatch: # Allows manual triggering of the workflow from GitHub UI
+
+jobs:
+  build:
+    runs-on: ubuntu-latest # Use a fresh Ubuntu environment for each build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4 # Checkout your repository code
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9' # Specify a Python version compatible with Kivy/Buildozer
+
+      - name: Install Buildozer and Cython
+        run: pip install buildozer cython # Install Buildozer and Cython (a common dependency)
+
+      # Add Java setup, as it's required for Android SDK tools like sdkmanager
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin' # Or 'zulu', 'adopt', 'microsoft'
+          java-version: '17' # Android SDK often requires Java 11 or 17
+
+      # Use the dedicated GitHub Action to set up Android SDK base components
+      # This action handles downloading, extracting, and setting initial paths.
+      - name: Setup Android SDK (Base)
+        uses: android-actions/setup-android@v2
+        with:
+          # Specify the Android API level you are targeting from your buildozer.spec
+          api-level: 33
+          # This action also attempts to accept common licenses, but we'll reinforce it.
+          accept-android-sdk-licenses: true
+
+      - name: Ensure ANDROID_HOME and PATH are set
+        run: |
+          # The setup-android action usually sets ANDROID_HOME to $HOME/Android/sdk
+          # Re-export these to ensure they are available for subsequent shell commands
+          export ANDROID_HOME="$HOME/Android/sdk"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          # Add cmdline-tools/latest/bin and platform-tools to PATH
+          echo "PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH" >> $GITHUB_ENV
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH" # For current shell
+          echo "Current PATH: $PATH"
+          echo "Current ANDROID_HOME: $ANDROID_HOME"
+        shell: bash
+
+      - name: Accept All Android SDK Licenses and Install Build-Tools
+        run: |
+          # This command will accept all outstanding licenses and update installed packages.
+          # The 'yes |' pipe is crucial for non-interactive acceptance.
+          echo "Attempting to accept all Android SDK licenses and update components..."
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+          echo "License acceptance and update attempt complete."
+
+          # Explicitly install build-tools;36.0.0 because the error indicates it's being looked for.
+          # This is done *after* general license acceptance.
           # Using '|| true' to prevent job failure if this specific version isn't available or causes a soft error.
           echo "Attempting to install build-tools;36.0.0..."
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;36.0.0" || true
