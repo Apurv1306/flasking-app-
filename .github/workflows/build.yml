@@ -24,16 +24,46 @@ jobs:
 
       # Use the dedicated GitHub Action to set up Android SDK
       # This action handles downloading, extracting, setting paths, and accepting licenses.
-      - name: Setup Android SDK
+      - name: Setup Android SDK (Base)
         uses: android-actions/setup-android@v2
         with:
           # Specify the Android API level you are targeting from your buildozer.spec
           api-level: 33
           # Automatically accept all required Android SDK licenses
           accept-android-sdk-licenses: true
-          # Optionally, you can specify a precise build-tools version if needed.
-          # By default, it will install a compatible version for the specified api-level.
-          # build-tools-version: '33.0.2' # Uncomment and set if you need a specific version
+          # We will explicitly install build-tools;36.0.0 in a separate step if needed.
+
+      - name: Ensure ANDROID_HOME and PATH are set
+        run: |
+          # Re-export ANDROID_HOME and PATH to ensure they are available for subsequent steps
+          # The setup-android action usually sets ANDROID_HOME to $HOME/Android/sdk
+          export ANDROID_HOME="$HOME/Android/sdk"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH" >> $GITHUB_ENV
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH" # For current shell
+          echo "Current PATH: $PATH"
+          echo "Current ANDROID_HOME: $ANDROID_HOME"
+        shell: bash
+
+      - name: Install Specific Android Build-Tools and Accept Licenses
+        run: |
+          # Create licenses directory and accept common licenses directly
+          # This is a fallback/additional measure for licenses not caught by setup-android
+          mkdir -p "$ANDROID_HOME/licenses"
+          # These are common license hashes. Add more if new ones appear in error logs.
+          echo "8933cc444bbd51ba6c970b55a4087e1e8557e4e1" > "$ANDROID_HOME/licenses/android-sdk-licenses"
+          echo "d975f743f9cdb82fc1498d32dc2c07937dd647f9" >> "$ANDROID_HOME/licenses/android-sdk-licenses"
+          echo "24333f8a63b6825ea9c65dab8d159f633a59d156" >> "$ANDROID_HOME/licenses/android-sdk-licenses"
+          echo "68561a6374823293021a8a43fcc41b12b6f483ec" >> "$ANDROID_HOME/licenses/android-sdk-licenses"
+          echo "e06d5069657a6e3a990098860a3832c668746c36" >> "$ANDROID_HOME/licenses/android-sdk-licenses"
+          echo "All SDK package licenses accepted (via file creation)."
+
+          # Explicitly install build-tools;36.0.0 because the error indicates it's being looked for.
+          # Using '|| true' to prevent job failure if this specific version isn't available or causes a soft error.
+          echo "Attempting to install build-tools;36.0.0..."
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;36.0.0" || true
+          echo "Installation attempt for build-tools;36.0.0 complete."
+        shell: bash
 
       - name: Create buildozer.spec
         run: |
@@ -65,7 +95,7 @@ jobs:
 
       - name: Run Buildozer (Android Debug Build)
         run: buildozer android debug # This command will build the debug APK
-        # Buildozer will now find the necessary SDK components set up by the previous step.
+        # Buildozer will now find the necessary SDK components set up by the previous steps.
         # This step can still take a significant amount of time on the first run due to Buildozer's own downloads.
 
       - name: Upload APK artifact
