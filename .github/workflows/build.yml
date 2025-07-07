@@ -1,3 +1,4 @@
+-+
 name: Android APK Build
 
 on:
@@ -41,6 +42,7 @@ jobs:
           # Download and install command-line tools
           echo "Downloading command-line tools..."
           # Updated URL for the latest command-line tools
+          # Using version 11.0.76708, which corresponds to the latest stable release
           wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O /tmp/commandlinetools.zip
           echo "Unzipping command-line tools..."
           unzip /tmp/commandlinetools.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
@@ -68,14 +70,18 @@ jobs:
           # Create licenses directory and accept licenses directly
           echo "Accepting Android SDK licenses by creating license file..."
           mkdir -p "$ANDROID_SDK_ROOT/licenses"
+          # Common license hashes (these might change, but cover most cases)
           echo "8933cc444bbd51ba6c970b55a4087e1e8557e4e1" > "$ANDROID_SDK_ROOT/licenses/android-sdk-licenses"
-          echo "d975f743f9cdb82fc1498d32dc2c07937dd647f9" >> "$ANDROID_SDK_ROOT/licenses/android-sdk-licenses" # Add more common license hashes if needed
+          echo "d975f743f9cdb82fc1498d32dc2c07937dd647f9" >> "$ANDROID_SDK_ROOT/licenses/android-sdk-licenses"
+          echo "24333f8a63b6825ea9c65dab8d159f633a59d156" >> "$ANDROID_SDK_ROOT/licenses/android-sdk-licenses"
+          echo "68561a6374823293021a8a43fcc41b12b6f483ec" >> "$ANDROID_SDK_ROOT/licenses/android-sdk-licenses"
+          echo "e06d5069657a6e3a990098860a3832c668746c36" >> "$ANDROID_SDK_ROOT/licenses/android-sdk-licenses"
           echo "All SDK package licenses accepted (via file creation)."
           
           # Install specific Android SDK components using the full path to sdkmanager
-          # Reverting build-tools to 33.0.2 to match android.api = 33 in buildozer.spec
-          echo "Installing platform-tools, platforms;android-33, build-tools;33.0.2..."
-          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+          # Installing build-tools;36.0.0 as suggested by the error log, along with platform-tools and android-33
+          echo "Installing platform-tools, platforms;android-33, build-tools;36.0.0..."
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-33" "build-tools;36.0.0"
           echo "SDK components installation complete."
         shell: bash
 
