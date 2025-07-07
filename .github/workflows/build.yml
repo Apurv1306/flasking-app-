@@ -33,23 +33,45 @@ jobs:
       # This step explicitly ensures aidl and other tools are available
       - name: Install Android SDK Build-Tools
         run: |
-          # Create a directory for the SDK if it doesn't exist
-          mkdir -p "$HOME/.android/sdk"
-          # Set ANDROID_HOME environment variable
-          echo "ANDROID_HOME=$HOME/.android/sdk" >> $GITHUB_ENV
-          echo "PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH" >> $GITHUB_ENV
+          # Define SDK path and create directory
+          export ANDROID_SDK_ROOT="$HOME/.android/sdk"
+          mkdir -p "$ANDROID_SDK_ROOT"
+          echo "Created SDK directory: $ANDROID_SDK_ROOT"
 
           # Download and install command-line tools
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-8583021_latest.zip -O /tmp/commandlinetools.zip
-          unzip -q /tmp/commandlinetools.zip -d "$ANDROID_HOME/cmdline-tools"
-          mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
+          echo "Downloading command-line tools..."
+          wget https://dl.google.com/android/repository/commandlinetools-linux-8583021_latest.zip -O /tmp/commandlinetools.zip
+          echo "Unzipping command-line tools..."
+          unzip /tmp/commandlinetools.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
+          
+          echo "Contents of $ANDROID_SDK_ROOT/cmdline-tools after unzip:"
+          ls -R "$ANDROID_SDK_ROOT/cmdline-tools"
 
-          # Accept licenses
-          yes | sdkmanager --licenses > /dev/null
+          # Move extracted contents to the 'latest' directory as expected by sdkmanager
+          # The zip extracts to cmdline-tools/cmdline-tools/
+          # We want it to be $ANDROID_SDK_ROOT/cmdline-tools/latest/
+          mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+          echo "Moved cmdline-tools to latest."
+          
+          echo "Contents of $ANDROID_SDK_ROOT/cmdline-tools/latest after move:"
+          ls -R "$ANDROID_SDK_ROOT/cmdline-tools/latest"
 
-          # Install specific Android SDK components required by Buildozer
-          # Use the android.api version from buildozer.spec (33 in this case)
-          sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2" # Using a specific build-tools version
+          # Set ANDROID_HOME and update PATH for this step and subsequent steps
+          echo "Setting ANDROID_HOME and PATH..."
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          echo "PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH" >> $GITHUB_ENV
+          export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH" # For current shell
+          echo "Current PATH: $PATH"
+          echo "Current ANDROID_HOME: $ANDROID_HOME"
+
+          # Accept licenses using the full path to sdkmanager
+          echo "Accepting Android SDK licenses..."
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses
+          
+          # Install specific Android SDK components using the full path to sdkmanager
+          echo "Installing platform-tools, platforms;android-33, build-tools;33.0.2..."
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+          echo "SDK components installation complete."
         shell: bash
 
       - name: Create buildozer.spec
