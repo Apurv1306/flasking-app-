@@ -1,4 +1,3 @@
--+
 name: Android APK Build
 
 on:
@@ -23,67 +22,18 @@ jobs:
       - name: Install Buildozer and Cython
         run: pip install buildozer cython # Install Buildozer and Cython (a common dependency)
 
-      # Add Java setup, as it's required for Android SDK tools
-      - name: Set up Java
-        uses: actions/setup-java@v4
+      # Use the dedicated GitHub Action to set up Android SDK
+      # This action handles downloading, extracting, setting paths, and accepting licenses.
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v2
         with:
-          distribution: 'temurin' # Or 'zulu', 'adopt', 'microsoft'
-          java-version: '17' # Android SDK often requires Java 11 or 17
-
-      # Install Android SDK Build-Tools and platform-tools
-      # This step explicitly ensures aidl and other tools are available
-      - name: Install Android SDK Build-Tools
-        run: |
-          # Define SDK path and create directory
-          export ANDROID_SDK_ROOT="$HOME/.android/sdk"
-          mkdir -p "$ANDROID_SDK_ROOT"
-          echo "Created SDK directory: $ANDROID_SDK_ROOT"
-
-          # Download and install command-line tools
-          echo "Downloading command-line tools..."
-          # Updated URL for the latest command-line tools
-          # Using version 11.0.76708, which corresponds to the latest stable release
-          wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O /tmp/commandlinetools.zip
-          echo "Unzipping command-line tools..."
-          unzip /tmp/commandlinetools.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
-          
-          echo "Contents of $ANDROID_SDK_ROOT/cmdline-tools after unzip:"
-          ls -R "$ANDROID_SDK_ROOT/cmdline-tools"
-
-          # Move extracted contents to the 'latest' directory as expected by sdkmanager
-          # The zip extracts to cmdline-tools/cmdline-tools/
-          # We want it to be $ANDROID_SDK_ROOT/cmdline-tools/latest/
-          mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest"
-          echo "Moved cmdline-tools to latest."
-          
-          echo "Contents of $ANDROID_SDK_ROOT/cmdline-tools/latest after move:"
-          ls -R "$ANDROID_SDK_ROOT/cmdline-tools/latest"
-
-          # Set ANDROID_HOME and update PATH for this step and subsequent steps
-          echo "Setting ANDROID_HOME and PATH..."
-          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
-          echo "PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH" >> $GITHUB_ENV
-          export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH" # For current shell
-          echo "Current PATH: $PATH"
-          echo "Current ANDROID_HOME: $ANDROID_HOME"
-
-          # Create licenses directory and accept licenses directly
-          echo "Accepting Android SDK licenses by creating license file..."
-          mkdir -p "$ANDROID_SDK_ROOT/licenses"
-          # Common license hashes (these might change, but cover most cases)
-          echo "8933cc444bbd51ba6c970b55a4087e1e8557e4e1" > "$ANDROID_SDK_ROOT/licenses/android-sdk-licenses"
-          echo "d975f743f9cdb82fc1498d32dc2c07937dd647f9" >> "$ANDROID_SDK_ROOT/licenses/android-sdk-licenses"
-          echo "24333f8a63b6825ea9c65dab8d159f633a59d156" >> "$ANDROID_SDK_ROOT/licenses/android-sdk-licenses"
-          echo "68561a6374823293021a8a43fcc41b12b6f483ec" >> "$ANDROID_SDK_ROOT/licenses/android-sdk-licenses"
-          echo "e06d5069657a6e3a990098860a3832c668746c36" >> "$ANDROID_SDK_ROOT/licenses/android-sdk-licenses"
-          echo "All SDK package licenses accepted (via file creation)."
-          
-          # Install specific Android SDK components using the full path to sdkmanager
-          # Installing build-tools;36.0.0 as suggested by the error log, along with platform-tools and android-33
-          echo "Installing platform-tools, platforms;android-33, build-tools;36.0.0..."
-          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-33" "build-tools;36.0.0"
-          echo "SDK components installation complete."
-        shell: bash
+          # Specify the Android API level you are targeting from your buildozer.spec
+          api-level: 33
+          # Automatically accept all required Android SDK licenses
+          accept-android-sdk-licenses: true
+          # Optionally, you can specify a precise build-tools version if needed.
+          # By default, it will install a compatible version for the specified api-level.
+          # build-tools-version: '33.0.2' # Uncomment and set if you need a specific version
 
       - name: Create buildozer.spec
         run: |
@@ -115,8 +65,8 @@ jobs:
 
       - name: Run Buildozer (Android Debug Build)
         run: buildozer android debug # This command will build the debug APK
-        # Buildozer will download necessary SDKs, NDKs, and other tools.
-        # This step can take a significant amount of time on the first run.
+        # Buildozer will now find the necessary SDK components set up by the previous step.
+        # This step can still take a significant amount of time on the first run due to Buildozer's own downloads.
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
